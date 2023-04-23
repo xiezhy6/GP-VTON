@@ -1,5 +1,7 @@
 # GP-VTON
-Official Implementation for CVPR2023 paper "GP-VTON: Towards General Purpose Virtual Try-on via Collaborative Local-Flow Global-Parsing Learning"
+Official Implementation for CVPR2023 paper [GP-VTON: Towards General Purpose Virtual Try-on via Collaborative Local-Flow Global-Parsing Learning](https://arxiv.org/pdf/2303.13756.pdf).
+
+![Teaser image](./figures/worldcup_vton.png)
 
 ## Dataset
 We provide the fine-grained parsing result of the model images and in-shop garment images from two existing high-resolution (1024 x 768) virtual try-on benchmarks, namely, VITON-HD and DressCode.
