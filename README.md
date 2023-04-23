@@ -21,7 +21,7 @@
     <sup>3</sup>Carnegie Mellon University&emsp; <sup>4</sup>Peng Cheng Laboratory
 </div>
 
-[Paper](https://arxiv.org/pdf/2303.13756.pdf) | [Project Page]()
+[Paper](https://arxiv.org/pdf/2303.13756.pdf) | [Project Page](ttps://github.com/xiezhy6/GP-VTON)
 </br>
 
 <strong>GP-VTON aims to transfer an in-shop garment onto a specific person.</strong>
