@@ -4,14 +4,14 @@
 
 <div>
     <a href="https://xiezhy6.github.io/" target="_blank">Zhenyu Xie</a><sup>1</sup>,
-    <a href="" target="_blank">Zaiyu Huang</a><sup>1</sup>,
-    <a href="">Xin Dong</a><sup>2</sup>,
+    <a href="https://github.com/xiezhy6/GP-VTON" target="_blank">Zaiyu Huang</a><sup>1</sup>,
+    <a href="https://github.com/xiezhy6/GP-VTON">Xin Dong</a><sup>2</sup>,
     <a href="https://scholar.google.com/citations?user=XSf0hP4AAAAJ&hl=en" target="_blank">Fuwei Zhao</a><sup>1</sup>,
+    <a href="https://sites.google.com/view/hydong?pli=1" target="_blank">Haoye Dong</a><sup>3</sup>,
 </div>
 <div>
-    <a href="https://sites.google.com/view/hydong?pli=1" target="_blank">Haoye Dong</a><sup>3</sup>,
-    <a href="" target="_blank">Xijin Zhang</a><sup>2</sup>
-    <a href="" target="_blank">Feida Zhu</a><sup>2</sup>
+    <a href="https://github.com/xiezhy6/GP-VTON" target="_blank">Xijin Zhang</a><sup>2</sup>
+    <a href="https://github.com/xiezhy6/GP-VTON" target="_blank">Feida Zhu</a><sup>2</sup>
     <a href="https://lemondan.github.io/" target="_blank">Xiaodan Liang</a><sup>1,4</sup>
 </div>
 <div>
@@ -24,7 +24,7 @@
 [Paper](https://arxiv.org/pdf/2303.13756.pdf) | [Project Page]()
 </br>
 
-<strong>GP-VTON aims to transfer an in-shop garment onto the particular person.</strong>
+<strong>GP-VTON aims to transfer an in-shop garment onto a specific person.</strong>
 
 <div style="width: 100%; text-align: center; margin:auto;">
     <img style="width:100%" src="figures/worldcup_vton.png">
