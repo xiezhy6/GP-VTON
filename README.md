@@ -7,6 +7,8 @@
     <a href="" target="_blank">Zaiyu Huang</a><sup>1</sup>,
     <a href="">Xin Dong</a><sup>2</sup>,
     <a href="https://scholar.google.com/citations?user=XSf0hP4AAAAJ&hl=en" target="_blank">Fuwei Zhao</a><sup>1</sup>,
+</div>
+<div>
     <a href="https://sites.google.com/view/hydong?pli=1" target="_blank">Haoye Dong</a><sup>3</sup>,
     <a href="" target="_blank">Xijin Zhang</a><sup>2</sup>
     <a href="" target="_blank">Feida Zhu</a><sup>2</sup>
@@ -14,6 +16,8 @@
 </div>
 <div>
     <sup>1</sup>Shenzhen Campus of Sun Yat-Sen University&emsp; <sup>2</sup>ByteDance
+</div>
+<div>
     <sup>3</sup>Carnegie Mellon University&emsp; <sup>4</sup>Peng Cheng Laboratory
 </div>
 
@@ -26,6 +30,7 @@
     <img style="width:100%" src="figures/worldcup_vton.png">
 </div>
 
+</div>
 
 ## Dataset
 We provide the fine-grained parsing result of the model images and in-shop garment images from two existing high-resolution (1024 x 768) virtual try-on benchmarks, namely, VITON-HD and DressCode.
