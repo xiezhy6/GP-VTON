@@ -52,11 +52,30 @@ We provide two version of the parsing results. One is with the original resoluti
 | 1024 x 768 | [Download](https://drive.google.com/file/d/14-md1SlLI-TQdi7tB9R9XwjryrRf8G-Q/view?usp=sharing) | [Download](https://pan.baidu.com/s/1T_O-xgfYkTfH0dSFZOEcdw?pwd=up9i) |
 | 512 x 384 | [Download](https://drive.google.com/file/d/1spTLgPjx1_qbmNa2Or8MzNDVawoNWXFO/view?usp=sharing) | [Download](https://pan.baidu.com/s/1hFkOvnOtWOp7UIplTMCPOw?pwd=c4dy) |
 
+## Environment Setup
+Install required packages:
 
+```
+pip3 install -r requirements.txt
+```
+
+## Inference
+
+**VITON-HD**
+To test the first stage (i.e., the LFGP warping module), runing the following scripts:
+```
+bash test.sh 1
+```
+
+To test the second stage (i.e., the try-on generator), runing the following scripts:
+```
+bash test.sh 2
+```
 
 ## Todo
 - [x] Release the ground truth of the garment parsing and human parsing for two public benchmarks (VITON-HD and DressesCode) used in the paper
-- [ ] Release the the pretrained model and the inference script.
+- [x] Release the the pretrained model and the inference script for VITON-HD dataset.
+- [ ] Release the the pretrained model and the inference script for DressCode dataset.
 - [ ] Release the training script.
 
 ## Citation
