@@ -62,12 +62,15 @@ pip3 install -r requirements.txt
 ## Inference
 
 **VITON-HD**
-To test the first stage (i.e., the LFGP warping module), runing the following scripts:
+
+Please download the pre-trained model from [Google Link(Coming som)]() or [Baidu Yun Link](), and put the downloaded directory under root directory of this project.
+
+To test the first stage (i.e., the LFGP warping module), run the following scripts:
 ```
 bash test.sh 1
 ```
 
-To test the second stage (i.e., the try-on generator), runing the following scripts:
+To test the second stage (i.e., the try-on generator), run the following scripts:
 ```
 bash test.sh 2
 ```
