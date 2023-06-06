@@ -60,7 +60,7 @@ pip3 install -r requirements.txt
 ```
 
 ## Dataset
-We conduct experiments on [VITON-HD](https://github.com/shadow2496/VITON-HD) and [DressCode](https://github.com/aimagelab/dress-code) datasets. For convenience, we provide the all of the conditions used in our experiments in the following links.
+We conduct experiments on the publicly available [VITON-HD](https://github.com/shadow2496/VITON-HD) and [DressCode](https://github.com/aimagelab/dress-code) datasets. For convenience, we provide all of the conditions used in our experiments in the following links.
 
 |Resolution|Google Cloud|Baidu Yun|
 |--------|--------------|-----------|
