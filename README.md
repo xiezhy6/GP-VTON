@@ -114,11 +114,26 @@ python3 -m torch.distributed.launch --nproc_per_node=8 --master_port=7129 train_
     --lr 0.00005
 ```
 
+To train the second stage (i.e., the try-on generator), run the following command:
+```
+python3 -m torch.distributed.launch --nproc_per_node=8 --master_port=4736 train_tryon.py \
+    --name gp-vton_gen_vitonhd_wskin_wgan_lrarms_1029 \
+    --resize_or_crop None --verbose --tf_log --batchSize 10 --num_gpus 8 --label_nc 14 --launcher pytorch \
+    --dataroot /home/tiger/datazy/CVPR2023/Datasets/VITONHD \
+    --image_pairs_txt train_pairs_1018.txt \
+    --warproot sample/test_gpvton_lrarms_for_training_1029 \
+    --display_freq 50 --print_freq 25 --save_epoch_freq 10 --write_loss_frep 25 \
+    --niter_decay 0 --niter 200 \
+    --lr 0.0005
+```
+
+
 ## Todo
 - [x] Release the ground truth of the garment parsing and human parsing for two public benchmarks (VITON-HD and DressesCode) used in the paper
 - [x] Release the the pretrained model and the inference script for VITON-HD dataset.
 - [ ] Release the the pretrained model and the inference script for DressCode dataset.
-- [ ] Release the training script.
+- [x] Release the training script for VITON-HD dataset.
+- [ ] Release the training script for DressCode dataset.
 
 ## Citation
 
