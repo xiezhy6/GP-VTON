@@ -64,7 +64,7 @@ We conduct experiments on the publicly available [VITON-HD](https://github.com/s
 
 |Resolution|Google Cloud|Baidu Yun|
 |--------|--------------|-----------|
-|VITON-HD(512 x 384)|[Download](https://drive.google.com/file/d/1zK3yZaqwIN8P933WwmDFVX8sUi1nVgbR/view?usp=sharing)|[Download](https://pan.baidu.com/s/1XlVunNM1mHsHN3HIoLCPLA?pwd=hu7h)|
+|VITON-HD(512 x 384)|[Download](https://drive.google.com/file/d/1zK3yZaqwIN8P933WwmDFVX8sUi1nVgbR/view?usp=sharing)|[Download](https://pan.baidu.com/s/1XCINK6FtxQuhRRpBO10FEw?pwd=dsm4)|
 |DressCode(512 x 384)|[Download (coming soon)]()|[Download (coming soon)]()|
 
 ## Inference
