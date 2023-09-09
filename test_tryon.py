@@ -15,7 +15,7 @@ opt = TrainOptions().parse()
 def CreateDataset(opt):
     from data.aligned_dataset_vitonhd import AlignedDataset
     dataset = AlignedDataset()
-    dataset.initialize(opt)
+    dataset.initialize(opt, mode='test')
     return dataset
 
 os.makedirs('sample',exist_ok=True)
@@ -58,8 +58,6 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
     epoch_start_time = time.time()
     if epoch != start_epoch:
         epoch_iter = epoch_iter % dataset_size
-
-    # train_sampler.set_epoch(epoch)
 
     for data in tqdm(train_loader):
 
@@ -112,7 +110,7 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
             cloth_id = data['color_path'][bb].split('/')[-1]
             person_id = data['img_path'][bb].split('/')[-1]
             c_type = data['c_type'][bb]
-            save_path = 'sample/'+opt.name+'/'+c_type+'___'+person_id+'___'+cloth_id
+            save_path = 'sample/'+opt.name+'/'+c_type+'___'+person_id+'___'+cloth_id[:-4]+'.png'
             cv2.imwrite(save_path, bgr)
     
     break

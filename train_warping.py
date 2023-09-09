@@ -1,6 +1,6 @@
 from options.train_options import TrainOptions
 from models.networks import VGGLoss, save_checkpoint, load_checkpoint_parallel, SpectralDiscriminator, GANLoss, set_requires_grad
-from models.afwm_in import TVLoss, AFWM_Vitonhd_lrarms
+from models.afwm import AFWM_Vitonhd_lrarms, TVLoss
 import os
 import numpy as np
 import torch
@@ -368,8 +368,6 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
 
                 vis_pose = (pose > 0).float()
                 vis_pose = torch.sum(vis_pose.cuda(), dim=1).unsqueeze(1)
-                vis_pose_mask = (vis_pose > 0).to(
-                    vis_pose.device).to(vis_pose.dtype)
                 g = torch.cat([vis_pose, vis_pose, vis_pose], 1)
 
                 h = torch.cat([preserve_mask, preserve_mask, preserve_mask], 1)

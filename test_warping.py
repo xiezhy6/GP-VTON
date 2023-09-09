@@ -3,7 +3,6 @@ import time
 from options.train_options import TrainOptions
 from models.networks import load_checkpoint_parallel
 from models.afwm import AFWM_Vitonhd_lrarms
-import torch.nn as nn
 import torch.nn.functional as F
 import os
 import numpy as np
@@ -11,7 +10,6 @@ import torch
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 import cv2
-from util.util import save_html
 import tqdm
 
 opt = TrainOptions().parse()
@@ -19,7 +17,7 @@ opt = TrainOptions().parse()
 def CreateDataset(opt):
     from data.aligned_dataset_vitonhd import AlignedDataset
     dataset = AlignedDataset()
-    dataset.initialize(opt)
+    dataset.initialize(opt, mode='test')
     return dataset
 
 os.makedirs('sample', exist_ok=True)
@@ -92,7 +90,6 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
             right_cloth_sleeve_mask = data['flat_clothes_right_mask']
 
             flat_cloth_mask = data['flat_cloth_mask'].cuda()
-            # flat_cloth_mask = torch.cat([flat_cloth_mask,flat_cloth_mask,flat_cloth_mask],1)
 
             clothes_left = clothes * left_cloth_sleeve_mask
             clothes_torso = clothes * cloth_torso_mask
@@ -116,22 +113,42 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
             preserve_mask2 = data['preserve_mask2'].cuda()
             preserve_mask3 = data['preserve_mask3'].cuda()
 
-            concat = torch.cat([densepose, pose, preserve_mask3], 1)
-            flow_out = model(concat, clothes, pre_clothes_edge, cloth_parse_for_d, \
-                            clothes_left, clothes_torso, clothes_right, \
-                            left_cloth_sleeve_mask, cloth_torso_mask, right_cloth_sleeve_mask, \
-                            preserve_mask3)
+            if opt.resolution == 512:
+                concat = torch.cat([densepose, pose, preserve_mask3], 1)
+                flow_out = model(concat, clothes, pre_clothes_edge, cloth_parse_for_d, \
+                                clothes_left, clothes_torso, clothes_right, \
+                                left_cloth_sleeve_mask, cloth_torso_mask, right_cloth_sleeve_mask, \
+                                preserve_mask3)
+                last_flow, last_flow_all, delta_list, x_all, x_edge_all, delta_x_all, delta_y_all, \
+                    x_full_all, x_edge_full_all, attention_all, seg_list = flow_out
+            else:
+                densepose_ds = F.interpolate(densepose, scale_factor=0.5, mode='nearest')
+                pose_ds = F.interpolate(pose, scale_factor=0.5, mode='nearest')
+                preserve_mask3_ds = F.interpolate(preserve_mask3, scale_factor=0.5, mode='nearest')
+                concat = torch.cat([densepose_ds, pose_ds, preserve_mask3_ds], 1)
 
-            last_flow, last_flow_all, delta_list, x_all, x_edge_all, delta_x_all, delta_y_all, \
-                x_full_all, x_edge_full_all, attention_all, seg_list = flow_out
+                clothes_ds = F.interpolate(clothes, scale_factor=0.5, mode='bilinear')
+                pre_clothes_edge_ds = F.interpolate(pre_clothes_edge, scale_factor=0.5, mode='nearest')
+                cloth_parse_for_d_ds = F.interpolate(cloth_parse_for_d, scale_factor=0.5, mode='nearest')
+                clothes_left_ds = F.interpolate(clothes_left, scale_factor=0.5, mode='bilinear')
+                clothes_torso_ds = F.interpolate(clothes_torso, scale_factor=0.5, mode='bilinear')
+                clothes_right_ds = F.interpolate(clothes_right, scale_factor=0.5, mode='bilinear')
+                left_cloth_sleeve_mask_ds = F.interpolate(left_cloth_sleeve_mask, scale_factor=0.5, mode='nearest')
+                cloth_torso_mask_ds = F.interpolate(cloth_torso_mask, scale_factor=0.5, mode='nearest')
+                right_cloth_sleeve_mask_ds = F.interpolate(right_cloth_sleeve_mask, scale_factor=0.5, mode='nearest')
+
+                flow_out = model(concat, clothes_ds, pre_clothes_edge_ds, cloth_parse_for_d_ds, \
+                                clothes_left_ds, clothes_torso_ds, clothes_right_ds, \
+                                left_cloth_sleeve_mask_ds, cloth_torso_mask_ds, right_cloth_sleeve_mask_ds, \
+                                preserve_mask3_ds)
+                last_flow, last_flow_all, delta_list, x_all, x_edge_all, delta_x_all, delta_y_all, \
+                    x_full_all, x_edge_full_all, attention_all, seg_list = flow_out
+                last_flow =  F.interpolate(last_flow, scale_factor=2, mode='bilinear')
 
             bz = pose.size(0)
 
             path = 'sample/'+opt.name
             os.makedirs(path, exist_ok=True)
-            a = real_image.float().cuda()
-            b = person_clothes_torso.float().cuda()
-            c = clothes.cuda()
 
             left_last_flow = last_flow[0:bz]
             torso_last_flow = last_flow[bz:2*bz]
@@ -145,8 +162,11 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
             torso_warped_cloth_edge = F.grid_sample(cloth_torso_mask.cuda(), torso_last_flow.permute(0, 2, 3, 1),mode='nearest', padding_mode='zeros')
             right_warped_cloth_edge = F.grid_sample(right_cloth_sleeve_mask.cuda(), right_last_flow.permute(0, 2, 3, 1),mode='nearest', padding_mode='zeros')
 
-            for bb in range(a.size(0)):
+            for bb in range(bz):
                 seg_preds = torch.argmax(softmax(seg_list[-1]),dim=1)[:,None,...].float()
+                if opt.resolution == 1024:
+                    seg_preds = F.interpolate(seg_preds, scale_factor=2, mode='nearest')
+
                 c_type = data['c_type'][bb]
                 left_mask = (seg_preds[bb]==1).float()
                 torso_mask = (seg_preds[bb]==2).float()
@@ -189,7 +209,7 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
 
                 cloth_id = data['color_path'][bb].split('/')[-1]
                 person_id = data['img_path'][bb].split('/')[-1]
-                save_path = 'sample/'+opt.name+'/'+c_type+'___'+person_id+'___'+cloth_id
+                save_path = 'sample/'+opt.name+'/'+c_type+'___'+person_id+'___'+cloth_id[:-4]+'.png'
                 cv2.imwrite(save_path, bgr)
 
     break
