@@ -14,9 +14,9 @@ if [ $1 == 1 ]; then
 elif [ $1 == 2 ]; then
     python3 -m torch.distributed.launch --nproc_per_node=8 --master_port=4736 test_tryon.py \
         --name test_gpvtongen_vitonhd_unpaired_1109 \
-        --resize_or_crop None --verbose --tf_log --batchSize 12 \
+        --resize_or_crop None --verbose --tf_log \
         --dataset vitonhd --resolution 512 \
-        --num_gpus 8 --label_nc 14 --launcher pytorch \
+        --batchSize 12 --num_gpus 8 --label_nc 14 --launcher pytorch \
         --PBAFN_gen_checkpoint 'checkpoints/gp-vton_gen_vitonhd_wskin_wgan_lrarms_1029/PBAFN_gen_epoch_201.pth' \
         --dataroot /home/tiger/datazy/Datasets/VITON-HD-512 \
         --image_pairs_txt test_pairs_unpaired_1018.txt \
