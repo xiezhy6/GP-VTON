@@ -77,6 +77,7 @@ python3 -m torch.distributed.launch --nproc_per_node=8 --master_port=4739 test_w
     --name test_partflow_vitonhd_unpaired_1109 \
     --PBAFN_warp_checkpoint 'checkpoints/gp-vton_partflow_vitonhd_usepreservemask_lrarms_1027/PBAFN_warp_epoch_121.pth' \
     --resize_or_crop None --verbose --tf_log \
+    --dataset vitonhd --resolution 512 \
     --batchSize 2 --num_gpus 8 --label_nc 14 --launcher pytorch \
     --dataroot /home/tiger/datazy/Datasets/VITON-HD-512 \
     --image_pairs_txt test_pairs_unpaired_1018.txt
@@ -86,7 +87,9 @@ To test the second stage (i.e., the try-on generator), run the following command
 ```
 python3 -m torch.distributed.launch --nproc_per_node=8 --master_port=4736 test_tryon.py \
     --name test_gpvtongen_vitonhd_unpaired_1109 \
-    --resize_or_crop None --verbose --tf_log --batchSize 12 --num_gpus 8 --label_nc 14 --launcher pytorch \
+    --resize_or_crop None --verbose --tf_log \
+    --dataset vitonhd --resolution 512 \
+    --batchSize 12 --num_gpus 8 --label_nc 14 --launcher pytorch \
     --PBAFN_gen_checkpoint 'checkpoints/gp-vton_gen_vitonhd_wskin_wgan_lrarms_1029/PBAFN_gen_epoch_201.pth' \
     --dataroot /home/tiger/datazy/Datasets/VITON-HD-512 \
     --image_pairs_txt test_pairs_unpaired_1018.txt \
@@ -149,6 +152,7 @@ To train the first stage (i.e., the LFGP warping module), run the following comm
 python3 -m torch.distributed.launch --nproc_per_node=8 --master_port=7129 train_warping.py \
     --name gp-vton_partflow_vitonhd_usepreservemask_lrarms_1027 \
     --resize_or_crop None --verbose --tf_log \
+    --dataset vitonhd --resolution 512 \
     --batchSize 2 --num_gpus 8 --label_nc 14 --launcher pytorch  \
     --dataroot /home/tiger/datazy/Datasets/VITON-HD-512 \
     --image_pairs_txt train_pairs_1018.txt \
@@ -163,6 +167,7 @@ python3 -m torch.distributed.launch --nproc_per_node=8 --master_port=4739 test_w
     --name test_gpvton_lrarms_for_training_1029 \
     --PBAFN_warp_checkpoint 'checkpoints/gp-vton_partflow_vitonhd_usepreservemask_lrarms_1027/PBAFN_warp_epoch_121.pth' \
     --resize_or_crop None --verbose --tf_log \
+    --dataset vitonhd --resolution 512 \
     --batchSize 2 --num_gpus 8 --label_nc 14 --launcher pytorch \
     --dataroot /home/tiger/datazy/Datasets/VITON-HD-512 \
     --image_pairs_txt train_pairs_1018.txt
@@ -171,7 +176,9 @@ The warped results will saved in the directory `sample/test_gpvton_lrarms_for_tr
 ```
 python3 -m torch.distributed.launch --nproc_per_node=8 --master_port=4736 train_tryon.py \
     --name gp-vton_gen_vitonhd_wskin_wgan_lrarms_1029 \
-    --resize_or_crop None --verbose --tf_log --batchSize 10 --num_gpus 8 --label_nc 14 --launcher pytorch \
+    --resize_or_crop None --verbose --tf_log \
+    --dataset vitonhd --resolution 512 \
+    --batchSize 10 --num_gpus 8 --label_nc 14 --launcher pytorch \
     --dataroot /home/tiger/datazy/Datasets/VITON-HD-512 \
     --image_pairs_txt train_pairs_1018.txt \
     --warproot sample/test_gpvton_lrarms_for_training_1029 \
