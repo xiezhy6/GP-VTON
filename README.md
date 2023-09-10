@@ -114,6 +114,7 @@ We also provide another version with the original resolution (1024 x 768).
 |DressCode(512 x 384)|Available soon|[Download](https://pan.baidu.com/s/19bWbO_klq_ABTTZKWmUCKg?pwd=unp4)|
 |DressCode(1024 x 768)|Available soon|[Download](https://pan.baidu.com/s/1HePSYE6DEwRGnZsfbJ5ylQ?pwd=qh5g)|
 
+> When using the VITON-HD and DressCode dataset, please strictly obey the official licences in their websites. ([Licence of VITON-HD](https://github.com/shadow2496/VITON-HD), [Licence of DressCode](https://github.com/aimagelab/dress-code/blob/main/LICENCE)) 
 
 ## Inference
 
