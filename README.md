@@ -37,20 +37,13 @@ We provide the fine-grained parsing result of the model images and in-shop garme
 
 We provide two version of the parsing results. One is with the original resolution (1024 x 768). Another is with the resolution of 512 x 384, on which our experiment are conducted.
 
-**VITON-HD**
 
 |Resolution|Google Cloud|Baidu Yun|
 |--------|--------------|-----------|
-| 1024 x 768 | Available soon | [Download](https://pan.baidu.com/s/1g9Wq1Oo_8GxwIax7nPve7A?pwd=kcu2) |
-| 512 x 384 | Available soon | [Download](https://pan.baidu.com/s/1tsoaYPnevI-EsqxYZZyIbg?pwd=f9sc) |
-
-
-**DressCode**
-
-|Resolution|Google Cloud|Baidu Yun|
-|--------|--------------|-----------|
-| 1024 x 768 | Available soon | Available soon |
-| 512 x 384 | Available soon | Available soon |
+| VITON-HD(512 x 384) | Available soon | [Download](https://pan.baidu.com/s/1tsoaYPnevI-EsqxYZZyIbg?pwd=f9sc) |
+| VITON-HD(1024 x 768) | Available soon | [Download](https://pan.baidu.com/s/1g9Wq1Oo_8GxwIax7nPve7A?pwd=kcu2) |
+| DressCode(512 x 384) | Available soon | [Download](https://pan.baidu.com/s/1qJ1CPxMshaSWaMi46FA3Ww?pwd=n7hv) |
+| DressCode(1024 x 768) | Available soon | [Download](https://pan.baidu.com/s/1_8bqRgakiM06EOQXjSbkaQ?pwd=yru5) |
 
 ## Environment Setup
 Install required packages:
@@ -67,16 +60,16 @@ We also provide another version with the original resolution (1024 x 768).
 |Resolution|Google Cloud|Baidu Yun|
 |--------|--------------|-----------|
 |VITON-HD(512 x 384)|Available soon|[Download](https://pan.baidu.com/s/16oJAl_VS18gQ2XHHhKgliA?pwd=e985)|
-|DressCode(512 x 384)|[Download (coming soon)]()|[Download (coming soon)]()|
 |VITON-HD(1024 x 768)|Available soon|[Download](https://pan.baidu.com/s/1d31qoF2bXGHAeFgIb5kVzA?pwd=3tah)|
-|DressCode(1024 x 768)|[Download (coming soon)]()|[Download (coming soon)]()|
+|DressCode(512 x 384)|Available soon|[Download](https://pan.baidu.com/s/19bWbO_klq_ABTTZKWmUCKg?pwd=unp4)|
+|DressCode(1024 x 768)|Available soon|[Download](https://pan.baidu.com/s/1HePSYE6DEwRGnZsfbJ5ylQ?pwd=qh5g)|
 
 
 ## Inference
 
 **VITON-HD**
 
-Please download the pre-trained model from [Google Link](https://drive.google.com/file/d/1vrUJf8n0nJdzX76gRI1x2u07chqPKBRf/view?usp=sharing) or [Baidu Yun Link](https://pan.baidu.com/s/1gc6cH38eRxeMHD9fLj_wDQ?pwd=egpa), and rename the downloaded directory to `checkpoints` and put it under root directory of this project.
+Please download the pre-trained model from [Google Link (Available soon)]() or [Baidu Yun Link](https://pan.baidu.com/s/1gc6cH38eRxeMHD9fLj_wDQ?pwd=egpa), and rename the downloaded directory to `checkpoints` and put it under root directory of this project.
 
 To test the first stage (i.e., the LFGP warping module), run the following command:
 ```
@@ -124,6 +117,28 @@ bash scripts/test.sh 4
 
 Note that, for higher resolution model, we only re-train the try-on module, thus the warping module is the same as that for 512-resolution synthesis.
 
+**DressCode**
+
+To test GP-VTON for DressCode dataset, please download the pre-trained model from [Google Link (Available soon)]() or [Baidu Yun Link](https://pan.baidu.com/s/12Q6N-FdU-nuz9Q5Er9DSQg?pwd=q2w5), and rename the downloaded directory to `checkpoints` and put it under root directory of this project.
+
+The inference scripts are similar those for VITON-HD dataset. You can directly run the following commands:
+
+```
+## for DressCode 512
+### for warping module
+bash scripts/test.sh 5
+
+### for try-on module
+bash scripts/test.sh 6
+
+## for DressCode 1024
+### for warping module
+bash scripts/test.sh 7
+
+### for try-on module
+bash scripts/test.sh 8
+
+```
 
 ## Training
 
@@ -188,13 +203,38 @@ bash scripts/train.sh 4
 bash scripts/train.sh 5
 ```
 
+**DressCode**
+
+The training scripts are similar those for VITON-HD dataset. You can directly run the following commands:
+
+```
+## for DressCode 512
+### train the warping module
+bash scripts/train.sh 6
+
+### prepare the warped garment
+bash scripts/train.sh 7
+
+### train the try-on module
+bash scripts/train.sh 8
+
+## for DressCode 1024
+### train the warping module
+bash scripts/train.sh 9
+
+### prepare the warped garment
+bash scripts/train.sh 10
+
+```
+
 
 ## Todo
 - [x] Release the ground truth of the garment parsing and human parsing for two public benchmarks (VITON-HD and DressesCode) used in the paper
 - [x] Release the the pretrained model and the inference script for VITON-HD dataset.
-- [ ] Release the the pretrained model and the inference script for DressCode dataset.
+- [x] Release the the pretrained model and the inference script for DressCode dataset.
 - [x] Release the training script for VITON-HD dataset.
-- [ ] Release the training script for DressCode dataset.
+- [x] Release the training script for DressCode dataset.
+- [x] Release the training/testing scripts for 1024-resolution on VITON-HD and DressCode datasets.
 
 ## Citation
 
