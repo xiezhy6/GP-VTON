@@ -45,6 +45,56 @@ We provide two version of the parsing results. One is with the original resoluti
 | DressCode(512 x 384) | Available soon | [Download](https://pan.baidu.com/s/1qJ1CPxMshaSWaMi46FA3Ww?pwd=n7hv) |
 | DressCode(1024 x 768) | Available soon | [Download](https://pan.baidu.com/s/1_8bqRgakiM06EOQXjSbkaQ?pwd=yru5) |
 
+The parsing labels for model image (person) and garment image (in-shop garment) are a bit different. The semantic of each index for human/garment parsing are described below.
+
+**Human Parsing (for person)**
+|Index of label|Semantic of label|
+|:--------:|:--------------:|
+|0|background|
+|1|hat|
+|2|hair|
+|3|glove|
+|4|glasses|
+|5|upper (only torso region)|
+|6|dresses (only torso region)|
+|7|coat (only torso region)|
+|8|socks|
+|9|left pants|
+|10|right patns|
+|11|skin (around neck region)|
+|12|scarf|
+|13|skirts|
+|14|face|
+|15|left arm|
+|16|right arm|
+|17|left leg|
+|18|right leg|
+|19|left shoe|
+|20|right shoe|
+|21|left sleeve (for upper)|
+|22|right sleeve (for upper)|
+|23|bag|
+|24|left sleeve (for dresses)|
+|25|right sleeve (for dresses)|
+|26|left sleeve (for coat)|
+|27|right sleeve (for coat)|
+|28|belt|
+
+**Garment Parsing (for in-shop garment)**
+|Index of label|Semantic of label|
+|:--------:|:--------------:|
+|0|background|
+|5|upper (only torso region)|
+|6|dresses (only torso region)|
+|7|coat (only torso region)|
+|9|left pants|
+|10|right patns|
+|13|skirts|
+|21|left sleeve (for upper, dresses, coat)|
+|22|right sleeve (for upper, dresses, coat)|
+|24|outer collar (preserved during training)|
+|25|inner collar (eliminated during training)|
+
 ## Environment Setup
 Install required packages:
 
