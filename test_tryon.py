@@ -44,6 +44,8 @@ gen_model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(gen_model).to(device)
 if opt.isTrain and len(opt.gpu_ids):
     model_gen = torch.nn.parallel.DistributedDataParallel(gen_model, device_ids=[opt.local_rank])
 
+model_gen.eval()
+
 for data in tqdm(train_loader):
     real_image = data['image'].cuda()
     clothes = data['color'].cuda()
