@@ -14,9 +14,14 @@ import datetime
 import functools
 
 def CreateDataset(opt):
-    from data.aligned_dataset_vitonhd import AlignedDataset
-    dataset = AlignedDataset()
-    dataset.initialize(opt)
+    if opt.dataset == 'vitonhd':
+        from data.aligned_dataset_vitonhd import AlignedDataset
+        dataset = AlignedDataset()
+        dataset.initialize(opt)
+    elif opt.dataset == 'dresscode':
+        from data.aligned_dataset_dresscode import AlignedDataset
+        dataset = AlignedDataset()
+        dataset.initialize(opt, mode='train', stage='gen')
     return dataset
 
 opt = TrainOptions().parse()
@@ -110,7 +115,10 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         p_rendered = torch.tanh(p_rendered)
         m_composite = torch.sigmoid(m_composite)
         m_composite1 = m_composite * warped_prod_edge
-        m_composite =  person_clothes_edge.cuda()*m_composite1
+        if opt.dataset == 'vitonhd':
+            m_composite =  person_clothes_edge.cuda()*m_composite1
+        elif opt.dataset == 'dresscode':
+            m_composite =  m_composite1
         p_tryon = warped_cloth * m_composite + p_rendered * (1 - m_composite)
 
         set_requires_grad(discriminator, True)
@@ -208,5 +216,5 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         save_checkpoint(model_gen.module, os.path.join(opt.checkpoints_dir, opt.name, 'PBAFN_gen_epoch_%03d.pth' % (epoch+1)))
         save_checkpoint(discriminator.module, os.path.join(opt.checkpoints_dir, opt.name, 'PBAFN_D_epoch_%03d.pth' % (epoch+1)))
     if epoch > opt.niter:
-        model.module.update_learning_rate_warp(optimizer_D)
-        model.module.update_learning_rate(optimizer_gen)
+        discriminator.module.update_learning_rate_warp(optimizer_D)
+        model_gen.module.update_learning_rate(optimizer_gen)

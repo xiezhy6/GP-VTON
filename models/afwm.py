@@ -552,3 +552,505 @@ class AFWM_Vitonhd_lrarms(nn.Module):
             print('update learning rate: %f -> %f' % (self.old_lr_warp, lr))
         self.old_lr_warp = lr
 
+
+### 混合所有衣服类别，flow预测网络引入spade区别不同类别衣服，衣服特征提取也使用SPADE，增加不同类别特征间的判别性
+class SPADE(nn.Module):
+    def __init__(self, norm_nc, label_nc):
+        super().__init__()
+        self.param_free_norm = nn.InstanceNorm2d(norm_nc, affine=False)
+
+        # The dimension of the intermediate embedding space. Yes, hardcoded.
+        nhidden = 128
+
+        self.mlp_shared = nn.Sequential(
+            nn.Conv2d(label_nc, nhidden, kernel_size=3, stride=1, padding=1),
+            nn.ReLU()
+        )
+        self.mlp_gamma = nn.Conv2d(nhidden, norm_nc, kernel_size=3, stride=1, padding=1)
+        self.mlp_beta = nn.Conv2d(nhidden, norm_nc, kernel_size=3, stride=1, padding=1)
+
+    def forward(self, x, segmap):
+
+        # Part 1. generate parameter-free normalized activations
+        normalized = self.param_free_norm(x)
+
+        # Part 2. produce scaling and bias conditioned on semantic map
+        segmap = F.interpolate(segmap, size=x.size()[2:], mode='nearest')
+        actv = self.mlp_shared(segmap)
+        gamma = self.mlp_gamma(actv)
+        beta = self.mlp_beta(actv)
+
+        # apply scale and bias
+        out = normalized * (1 + gamma) + beta
+
+        return out
+
+
+class ResBlock_SPADE(nn.Module):
+    def __init__(self, in_channels):
+        super(ResBlock_SPADE, self).__init__()
+        self.norm_0 = SPADE(in_channels,1)
+        self.norm_1 = SPADE(in_channels,1)
+
+        self.actvn_0 = nn.LeakyReLU(inplace=False, negative_slope=0.1)
+        self.actvn_1 = nn.LeakyReLU(inplace=False, negative_slope=0.1)
+
+        self.conv_0 = nn.Conv2d(in_channels,in_channels,kernel_size=3, padding=1)
+        self.conv_1 = nn.Conv2d(in_channels,in_channels,kernel_size=3, padding=1)
+
+    def forward(self, x, label_map):
+        dx = self.conv_0(self.actvn_0(self.norm_0(x, label_map)))
+        dx = self.conv_1(self.actvn_1(self.norm_1(dx, label_map)))
+
+        return dx + x
+
+
+class FeatureEncoder_SPADE(nn.Module):
+    def __init__(self, in_channels, chns=[64, 128, 256, 256, 256]):
+        super(FeatureEncoder_SPADE, self).__init__()
+        self.encoders = []
+        for i, out_chns in enumerate(chns):
+            if i == 0:
+                encoder = nn.ModuleList([DownSample(in_channels, out_chns),
+                                        ResBlock_SPADE(out_chns),
+                                        ResBlock_SPADE(out_chns)])
+            else:
+                encoder = nn.ModuleList([DownSample(chns[i-1], out_chns),
+                                        ResBlock_SPADE(out_chns),
+                                        ResBlock_SPADE(out_chns)])
+
+            self.encoders.append(encoder)
+
+        self.encoders = nn.ModuleList(self.encoders)
+
+    def forward(self, x, label_map):
+        encoder_features = []
+        for encoder in self.encoders:
+            for ii, encoder_submodule in enumerate(encoder):
+                if ii == 0:
+                    x = encoder_submodule(x)
+                else:
+                    x = encoder_submodule(x, label_map)
+            encoder_features.append(x)
+        return encoder_features
+
+
+
+class AFlowNet_Dresscode_lrarms(nn.Module):
+    def __init__(self, num_pyramid, fpn_dim=256):
+        super(AFlowNet_Dresscode_lrarms, self).__init__()
+        self.netLeftMain = []
+        self.netTorsoMain = []
+        self.netRightMain = []
+
+        self.netLeftRefine = []
+        self.netTorsoRefine = []
+        self.netRightRefine = []
+
+        self.netAttentionRefine = []
+        self.netPartFusion = []
+        self.netSeg = []
+
+        for i in range(num_pyramid):
+            netLeftMain_layer = nn.ModuleList([
+                torch.nn.Conv2d(in_channels=49, out_channels=128,
+                                kernel_size=3, stride=1, padding=1),
+                SPADE(128,1),
+                torch.nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                torch.nn.Conv2d(in_channels=128, out_channels=64,
+                                kernel_size=3, stride=1, padding=1),
+                SPADE(64,1),
+                torch.nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                torch.nn.Conv2d(in_channels=64, out_channels=32,
+                                kernel_size=3, stride=1, padding=1),
+                SPADE(32,1),
+                torch.nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                torch.nn.Conv2d(in_channels=32, out_channels=2,
+                                kernel_size=3, stride=1, padding=1)
+            ])
+            netTorsoMain_layer = nn.ModuleList([
+                torch.nn.Conv2d(in_channels=49, out_channels=128,
+                                kernel_size=3, stride=1, padding=1),
+                SPADE(128,1),
+                torch.nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                torch.nn.Conv2d(in_channels=128, out_channels=64,
+                                kernel_size=3, stride=1, padding=1),
+                SPADE(64,1),
+                torch.nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                torch.nn.Conv2d(in_channels=64, out_channels=32,
+                                kernel_size=3, stride=1, padding=1),
+                SPADE(32,1),
+                torch.nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                torch.nn.Conv2d(in_channels=32, out_channels=2,
+                                kernel_size=3, stride=1, padding=1)
+            ])
+            netRightMain_layer = nn.ModuleList([
+                torch.nn.Conv2d(in_channels=49, out_channels=128,
+                                kernel_size=3, stride=1, padding=1),
+                SPADE(128,1),
+                torch.nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                torch.nn.Conv2d(in_channels=128, out_channels=64,
+                                kernel_size=3, stride=1, padding=1),
+                SPADE(64,1),
+                torch.nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                torch.nn.Conv2d(in_channels=64, out_channels=32,
+                                kernel_size=3, stride=1, padding=1),
+                SPADE(32,1),
+                torch.nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                torch.nn.Conv2d(in_channels=32, out_channels=2,
+                                kernel_size=3, stride=1, padding=1)
+            ])
+
+            netRefine_left_layer = nn.ModuleList([
+                torch.nn.Conv2d(2 * fpn_dim, out_channels=128,
+                                kernel_size=3, stride=1, padding=1),
+                SPADE(128,1),
+                torch.nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                torch.nn.Conv2d(in_channels=128, out_channels=64,
+                                kernel_size=3, stride=1, padding=1),
+                SPADE(64,1),
+                torch.nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                torch.nn.Conv2d(in_channels=64, out_channels=32,
+                                kernel_size=3, stride=1, padding=1),
+                SPADE(32,1),
+                torch.nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                torch.nn.Conv2d(in_channels=32, out_channels=2,
+                                kernel_size=3, stride=1, padding=1)
+            ])
+            netRefine_torso_layer = nn.ModuleList([
+                torch.nn.Conv2d(2 * fpn_dim, out_channels=128,
+                                kernel_size=3, stride=1, padding=1),
+                SPADE(128,1),
+                torch.nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                torch.nn.Conv2d(in_channels=128, out_channels=64,
+                                kernel_size=3, stride=1, padding=1),
+                SPADE(64,1),
+                torch.nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                torch.nn.Conv2d(in_channels=64, out_channels=32,
+                                kernel_size=3, stride=1, padding=1),
+                SPADE(32,1),
+                torch.nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                torch.nn.Conv2d(in_channels=32, out_channels=2,
+                                kernel_size=3, stride=1, padding=1)
+            ])
+            netRefine_right_layer = nn.ModuleList([
+                torch.nn.Conv2d(2 * fpn_dim, out_channels=128,
+                                kernel_size=3, stride=1, padding=1),
+                SPADE(128,1),
+                torch.nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                torch.nn.Conv2d(in_channels=128, out_channels=64,
+                                kernel_size=3, stride=1, padding=1),
+                SPADE(64,1),
+                torch.nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                torch.nn.Conv2d(in_channels=64, out_channels=32,
+                                kernel_size=3, stride=1, padding=1),
+                SPADE(32,1),
+                torch.nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                torch.nn.Conv2d(in_channels=32, out_channels=2,
+                                kernel_size=3, stride=1, padding=1)
+            ])
+
+            netAttentionRefine_layer = torch.nn.Sequential(
+                torch.nn.Conv2d(in_channels=4 * fpn_dim, out_channels=128,
+                                kernel_size=3, stride=1, padding=1),
+                torch.nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                torch.nn.Conv2d(in_channels=128, out_channels=64,
+                                kernel_size=3, stride=1, padding=1),
+                torch.nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                torch.nn.Conv2d(in_channels=64, out_channels=32,
+                                kernel_size=3, stride=1, padding=1),
+                torch.nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                torch.nn.Conv2d(in_channels=32, out_channels=3,
+                                kernel_size=3, stride=1, padding=1),
+                torch.nn.Tanh()
+            )
+
+            netSeg_layer = nn.ModuleList([
+                torch.nn.Conv2d(in_channels=fpn_dim*2, out_channels=128,
+                                kernel_size=3, stride=1, padding=1),
+                SPADE(128,1),
+                torch.nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                torch.nn.Conv2d(in_channels=128, out_channels=64,
+                                kernel_size=3, stride=1, padding=1),
+                SPADE(64,1),
+                torch.nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                torch.nn.Conv2d(in_channels=64, out_channels=32,
+                                kernel_size=3, stride=1, padding=1),
+                SPADE(32,1),
+                torch.nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                torch.nn.Conv2d(in_channels=32, out_channels=10,
+                                kernel_size=3, stride=1, padding=1),
+                torch.nn.Tanh()
+            ])
+
+            partFusion_layer = torch.nn.Sequential(
+                nn.Conv2d(fpn_dim*3, fpn_dim, kernel_size=1),
+                ResBlock(fpn_dim)
+            )
+
+            self.netLeftMain.append(netLeftMain_layer)
+            self.netTorsoMain.append(netTorsoMain_layer)
+            self.netRightMain.append(netRightMain_layer)
+
+            self.netLeftRefine.append(netRefine_left_layer)
+            self.netTorsoRefine.append(netRefine_torso_layer)
+            self.netRightRefine.append(netRefine_right_layer)
+
+            self.netAttentionRefine.append(netAttentionRefine_layer)
+            self.netPartFusion.append(partFusion_layer)
+            self.netSeg.append(netSeg_layer)
+
+        self.netLeftMain = nn.ModuleList(self.netLeftMain)
+        self.netTorsoMain = nn.ModuleList(self.netTorsoMain)
+        self.netRightMain = nn.ModuleList(self.netRightMain)
+
+        self.netLeftRefine = nn.ModuleList(self.netLeftRefine)
+        self.netTorsoRefine = nn.ModuleList(self.netTorsoRefine)
+        self.netRightRefine = nn.ModuleList(self.netRightRefine)
+
+        self.netAttentionRefine = nn.ModuleList(self.netAttentionRefine)
+        self.netPartFusion = nn.ModuleList(self.netPartFusion)
+        self.netSeg = nn.ModuleList(self.netSeg)
+        self.softmax = torch.nn.Softmax(dim=1)
+
+
+    def forward(self, x, x_edge, x_full, x_edge_full, x_warps, x_conds, preserve_mask, cloth_label_map, warp_feature=True):
+        last_flow = None
+        last_flow_all = []
+        delta_list = []
+        x_all = []
+        x_edge_all = []
+        x_full_all = []
+        x_edge_full_all = []
+        attention_all = []
+        seg_list = []
+        delta_x_all = []
+        delta_y_all = []
+        filter_x = [[0, 0, 0],
+                    [1, -2, 1],
+                    [0, 0, 0]]
+        filter_y = [[0, 1, 0],
+                    [0, -2, 0],
+                    [0, 1, 0]]
+        filter_diag1 = [[1, 0, 0],
+                        [0, -2, 0],
+                        [0, 0, 1]]
+        filter_diag2 = [[0, 0, 1],
+                        [0, -2, 0],
+                        [1, 0, 0]]
+        weight_array = np.ones([3, 3, 1, 4])
+        weight_array[:, :, 0, 0] = filter_x
+        weight_array[:, :, 0, 1] = filter_y
+        weight_array[:, :, 0, 2] = filter_diag1
+        weight_array[:, :, 0, 3] = filter_diag2
+
+        weight_array = torch.cuda.FloatTensor(weight_array).permute(3, 2, 0, 1)
+        self.weight = nn.Parameter(data=weight_array, requires_grad=False)
+
+        for i in range(len(x_warps)):
+            x_warp = x_warps[len(x_warps) - 1 - i]
+            x_cond = x_conds[len(x_warps) - 1 - i]
+
+            x_cond_concate = torch.cat([x_cond,x_cond,x_cond],0)
+            x_warp_concate = torch.cat([x_warp,x_warp,x_warp],0)
+
+            if last_flow is not None and warp_feature:
+                x_warp_after = F.grid_sample(x_warp_concate, last_flow.detach().permute(0, 2, 3, 1),
+                                             mode='bilinear', padding_mode='border')
+            else:
+                x_warp_after = x_warp_concate
+
+            tenCorrelation = F.leaky_relu(input=correlation.FunctionCorrelation(
+                tenFirst=x_warp_after, tenSecond=x_cond_concate, intStride=1), negative_slope=0.1, inplace=False)
+            
+            bz = x_cond.size(0)
+
+            left_flow = tenCorrelation[0:bz]
+            torso_flow = tenCorrelation[bz:2*bz]
+            right_flow = tenCorrelation[2*bz:]
+
+            for ii, sub_flow_module in enumerate(self.netLeftMain[i]):
+                if ii == 1 or ii == 4 or ii == 7:
+                    left_flow = sub_flow_module(left_flow, cloth_label_map)
+                else:
+                    left_flow = sub_flow_module(left_flow)
+
+            for ii, sub_flow_module in enumerate(self.netTorsoMain[i]):
+                if ii == 1 or ii == 4 or ii == 7:
+                    torso_flow = sub_flow_module(torso_flow, cloth_label_map)
+                else:
+                    torso_flow = sub_flow_module(torso_flow)
+
+            for ii, sub_flow_module in enumerate(self.netRightMain[i]):
+                if ii == 1 or ii == 4 or ii == 7:
+                    right_flow = sub_flow_module(right_flow, cloth_label_map)
+                else:
+                    right_flow = sub_flow_module(right_flow)
+
+            flow = torch.cat([left_flow,torso_flow,right_flow],0)
+
+            delta_list.append(flow)
+            flow = apply_offset(flow)
+            if last_flow is not None:
+                flow = F.grid_sample(last_flow, flow, mode='bilinear', padding_mode='border')
+            else:
+                flow = flow.permute(0, 3, 1, 2)
+
+            last_flow = flow
+            x_warp_concate = F.grid_sample(x_warp_concate, flow.permute(
+                0, 2, 3, 1), mode='bilinear', padding_mode='border')
+
+            left_concat = torch.cat([x_warp_concate[0:bz], x_cond_concate[0:bz]], 1)
+            torso_concat = torch.cat([x_warp_concate[bz:2*bz], x_cond_concate[bz:2*bz]],1)
+            right_concat = torch.cat([x_warp_concate[2*bz:], x_cond_concate[2*bz:]],1)
+
+            x_attention = torch.cat([x_warp_concate[0:bz],x_warp_concate[bz:2*bz],x_warp_concate[2*bz:],x_cond],1)
+            fused_attention = self.netAttentionRefine[i](x_attention)
+            fused_attention = self.softmax(fused_attention)
+
+            left_flow = left_concat
+            torso_flow = torso_concat
+            right_flow = right_concat
+
+            for ii, sub_flow_module in enumerate(self.netLeftRefine[i]):
+                if ii == 1 or ii == 4 or ii == 7:
+                    left_flow = sub_flow_module(left_flow, cloth_label_map)
+                else:
+                    left_flow = sub_flow_module(left_flow)
+
+            for ii, sub_flow_module in enumerate(self.netTorsoRefine[i]):
+                if ii == 1 or ii == 4 or ii == 7:
+                    torso_flow = sub_flow_module(torso_flow, cloth_label_map)
+                else:
+                    torso_flow = sub_flow_module(torso_flow)
+
+            for ii, sub_flow_module in enumerate(self.netRightRefine[i]):
+                if ii == 1 or ii == 4 or ii == 7:
+                    right_flow = sub_flow_module(right_flow, cloth_label_map)
+                else:
+                    right_flow = sub_flow_module(right_flow)     
+
+            flow = torch.cat([left_flow,torso_flow,right_flow],0)
+
+            delta_list.append(flow)
+            flow = apply_offset(flow)
+            flow = F.grid_sample(last_flow, flow, mode='bilinear', padding_mode='border')
+
+            fused_flow = flow[0:bz] * fused_attention[:,0:1,...] + \
+                         flow[bz:2*bz] * fused_attention[:,1:2,...] + \
+                         flow[2*bz:] * fused_attention[:,2:3,...]
+            last_fused_flow = F.interpolate(fused_flow, scale_factor=2, mode='bilinear')
+
+            fused_attention = F.interpolate(fused_attention, scale_factor=2, mode='bilinear')
+            attention_all.append(fused_attention)
+
+            cur_x_full = F.interpolate(x_full, scale_factor=0.5 ** (len(x_warps)-1-i), mode='bilinear')
+            cur_x_full_warp = F.grid_sample(cur_x_full, last_fused_flow.permute(0, 2, 3, 1), mode='bilinear', padding_mode='zeros')
+            x_full_all.append(cur_x_full_warp)
+            cur_x_edge_full = F.interpolate(x_edge_full, scale_factor=0.5**(len(x_warps)-1-i), mode='bilinear')
+            cur_x_edge_full_warp = F.grid_sample(cur_x_edge_full, last_fused_flow.permute(0, 2, 3, 1), mode='bilinear', padding_mode='zeros')
+            x_edge_full_all.append(cur_x_edge_full_warp)
+
+            last_flow = F.interpolate(flow, scale_factor=2, mode='bilinear')
+            last_flow_all.append(last_flow)
+
+            cur_x = F.interpolate(x, scale_factor=0.5 ** (len(x_warps)-1-i), mode='bilinear')
+            cur_x_warp = F.grid_sample(cur_x, last_flow.permute(0, 2, 3, 1), mode='bilinear', padding_mode='zeros')
+            x_all.append(cur_x_warp)
+            cur_x_edge = F.interpolate(x_edge, scale_factor=0.5**(len(x_warps)-1-i), mode='bilinear')
+            cur_x_warp_edge = F.grid_sample(cur_x_edge, last_flow.permute(0, 2, 3, 1), mode='bilinear', padding_mode='zeros')
+            x_edge_all.append(cur_x_warp_edge)
+
+            flow_x, flow_y = torch.split(last_flow, 1, dim=1)
+            delta_x = F.conv2d(flow_x, self.weight)
+            delta_y = F.conv2d(flow_y, self.weight)
+            delta_x_all.append(delta_x)
+            delta_y_all.append(delta_y)
+
+            # predict seg
+            cur_preserve_mask = F.interpolate(preserve_mask, scale_factor=0.5 ** (len(x_warps)-1-i), mode='bilinear')
+            x_warp = x_warps[len(x_warps) - 1 - i]
+            x_cond = x_conds[len(x_warps) - 1 - i]
+
+            x_warp = torch.cat([x_warp,x_warp,x_warp],0)
+            x_warp = F.interpolate(x_warp, scale_factor=2, mode='bilinear')
+            x_cond = F.interpolate(x_cond, scale_factor=2, mode='bilinear')
+
+            x_warp = F.grid_sample(x_warp, last_flow.permute(0, 2, 3, 1),mode='bilinear', padding_mode='border')
+            x_warp_left = x_warp[0:bz]
+            x_warp_torso = x_warp[bz:2*bz]
+            x_warp_right = x_warp[2*bz:]
+
+            x_edge_left = cur_x_warp_edge[0:bz]
+            x_edge_torso = cur_x_warp_edge[bz:2*bz]
+            x_edge_right = cur_x_warp_edge[2*bz:]
+
+            x_warp_left = x_warp_left * x_edge_left * (1-cur_preserve_mask)
+            x_warp_torso = x_warp_torso * x_edge_torso * (1-cur_preserve_mask)
+            x_warp_right = x_warp_right * x_edge_right * (1-cur_preserve_mask)
+
+            x_warp = torch.cat([x_warp_left,x_warp_torso,x_warp_right],1)
+            x_warp = self.netPartFusion[i](x_warp)
+
+            seg = torch.cat([x_warp, x_cond],1)
+            for ii, sub_flow_module in enumerate(self.netSeg[i]):
+                if ii == 1 or ii == 4 or ii == 7:
+                    seg = sub_flow_module(seg, cloth_label_map)
+                else:
+                    seg = sub_flow_module(seg)
+            seg_list.append(seg)
+
+        return last_flow, last_flow_all, delta_list, x_all, x_edge_all, delta_x_all, delta_y_all, x_full_all, \
+                x_edge_full_all, attention_all, seg_list
+
+
+class AFWM_Dressescode_lrarms(nn.Module):
+    def __init__(self, opt, input_nc, clothes_input_nc=3):
+        super(AFWM_Dressescode_lrarms, self).__init__()
+        num_filters = [64, 128, 256, 256, 256]
+        # num_filters = [64,128,256,512,512]
+        fpn_dim = 256
+        self.image_features = FeatureEncoder_SPADE(clothes_input_nc+1, num_filters)
+        self.cond_features = FeatureEncoder(input_nc, num_filters)
+        self.image_FPN = RefinePyramid(chns=num_filters, fpn_dim=fpn_dim)
+        self.cond_FPN = RefinePyramid(chns=num_filters, fpn_dim=fpn_dim)
+        
+        self.aflow_net = AFlowNet_Dresscode_lrarms(len(num_filters))
+        self.old_lr = opt.lr
+        self.old_lr_warp = opt.lr*0.2
+
+    def forward(self, cond_input, image_input, image_edge, image_label_input, image_input_left, image_input_torso, \
+                image_input_right, image_edge_left, image_edge_torso, image_edge_right, preserve_mask, cloth_label_map):
+        image_input_concat = torch.cat([image_input, image_label_input],1)
+
+        image_pyramids = self.image_FPN(self.image_features(image_input_concat, cloth_label_map))
+        cond_pyramids = self.cond_FPN(self.cond_features(cond_input))  # maybe use nn.Sequential
+
+        image_concat = torch.cat([image_input_left,image_input_torso,image_input_right],0)
+        image_edge_concat = torch.cat([image_edge_left, image_edge_torso, image_edge_right],0)
+
+        last_flow, last_flow_all, delta_list, x_all, x_edge_all, delta_x_all, delta_y_all, \
+            x_full_all, x_edge_full_all, attention_all, seg_list = self.aflow_net(image_concat, \
+            image_edge_concat, image_input, image_edge, image_pyramids, cond_pyramids, \
+            preserve_mask, cloth_label_map)
+
+        return last_flow, last_flow_all, delta_list, x_all, x_edge_all, delta_x_all, delta_y_all, \
+                x_full_all, x_edge_full_all, attention_all, seg_list
+
+    def update_learning_rate(self, optimizer):
+        lrd = opt.lr / opt.niter_decay
+        lr = self.old_lr - lrd
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = lr
+        if opt.verbose:
+            print('update learning rate: %f -> %f' % (self.old_lr, lr))
+        self.old_lr = lr
+
+    def update_learning_rate_warp(self, optimizer):
+        lrd = 0.2 * opt.lr / opt.niter_decay
+        lr = self.old_lr_warp - lrd
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = lr
+        if opt.verbose:
+            print('update learning rate: %f -> %f' % (self.old_lr_warp, lr))
+        self.old_lr_warp = lr

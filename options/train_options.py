@@ -107,4 +107,7 @@ class TrainOptions(BaseOptions):
         self.parser.add_argument('--mask_epoch', type=int, default=-1)
         self.parser.add_argument('--no_dynamic_mask', action='store_true')
 
+        self.parser.add_argument('--resolution', type=int, default=512)
+        self.parser.add_argument('--dataset', type=str, default='vitonhd')
+
         self.isTrain = True

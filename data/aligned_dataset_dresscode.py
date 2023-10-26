@@ -8,14 +8,14 @@ from PIL import ImageDraw
 import cv2
 import pycocotools.mask as maskUtils
 import math
-import json
 
 class AlignedDataset(BaseDataset):
-    def initialize(self, opt, mode='train'):
+    def initialize(self, opt, mode='train', stage='warp'):
         self.opt = opt
         self.root = opt.dataroot
         self.warproot = opt.warproot
         self.resolution = opt.resolution
+        self.stage = stage
 
         if self.resolution == 512:
             self.fine_height=512
@@ -39,11 +39,10 @@ class AlignedDataset(BaseDataset):
         self.C_types = []
         for line in lines:
             p_name, c_name, c_type = line.strip().split()
-            P_path = os.path.join(self.root, self.mode, 'image', p_name)
-            C_path = os.path.join(self.root, self.mode, 'cloth', c_name)
+            P_path = os.path.join(self.root, c_type, 'image', p_name)
+            C_path = os.path.join(self.root, c_type, 'cloth_align', c_name)
             if self.resolution == 1024:
                 P_path = P_path.replace('.png', '.jpg')
-                C_path = C_path.replace('.png', '.jpg')
             self.P_paths.append(P_path)
             self.C_paths.append(C_path)
             self.C_types.append(c_type)
@@ -51,7 +50,7 @@ class AlignedDataset(BaseDataset):
         ratio_dict = None
         if self.mode == 'train':
             ratio_dict = {}
-            person_clothes_ratio_txt = os.path.join(self.root, 'person_clothes_ratio_train.txt')
+            person_clothes_ratio_txt = os.path.join(self.root, 'person_clothes_ratio_upper_train.txt')
             with open(person_clothes_ratio_txt, 'r') as f:
                 lines = f.readlines()
             for line in lines:
@@ -170,11 +169,8 @@ class AlignedDataset(BaseDataset):
         P_tensor = transform_for_rgb(P)
 
         # person 2d pose
-        pose_path = P_path.replace('/image/', '/openpose_json/')[:-4]+'_keypoints.json'
-        with open(pose_path, 'r') as f:
-            datas = json.load(f)
-        pose_data = np.array(datas['people'][0]['pose_keypoints_2d']).reshape(-1,3)
-
+        pose_path = P_path.replace('/image/', '/pose_25/')+'.npy'
+        pose_data = np.load(pose_path)[0]
         point_num = pose_data.shape[0]
         pose_map = torch.zeros(point_num, self.fine_height, self.fine_width)
         r = self.radius
@@ -186,7 +182,7 @@ class AlignedDataset(BaseDataset):
             pointx = pose_data[i, 0]
             pointy = pose_data[i, 1]
             if pointx > 1 and pointy > 1:
-                draw.rectangle((pointx-r, pointy-r, pointx+r, pointy+r), 'white', 'white')
+                draw.rectangle((pointx-r, pointy-r, pointx + r, pointy+r), 'white', 'white')
                 pose_draw.rectangle((pointx-r, pointy-r, pointx+r, pointy+r), 'white', 'white')
             one_map = transform_for_rgb(one_map.convert('RGB'))
             pose_map[i] = one_map[0]
@@ -207,101 +203,195 @@ class AlignedDataset(BaseDataset):
         parsing_np = (parsing_tensor.numpy().transpose(1, 2, 0)[..., 0:1]).astype(np.uint8)
         palm_mask_np = self.get_palm(parsing_np, pose_data)
 
-        person_clothes_left_sleeve_mask_np = (parsing_np==21).astype(int) + \
-                                            (parsing_np==24).astype(int)
-        person_clothes_torso_mask_np = (parsing_np==5).astype(int) + \
-                                    (parsing_np==6).astype(int)
-        person_clothes_right_sleeve_mask_np = (parsing_np==22).astype(int) + \
-                                            (parsing_np==25).astype(int)
-        person_clothes_mask_np = person_clothes_left_sleeve_mask_np + \
-                                person_clothes_torso_mask_np + \
-                                person_clothes_right_sleeve_mask_np
-        left_arm_mask_np = (parsing_np==15).astype(int)
-        right_arm_mask_np = (parsing_np==16).astype(int)
-        hand_mask_np = (parsing_np==15).astype(int) + (parsing_np==16).astype(int)
-        neck_mask_np = (parsing_np==11).astype(int)
+        person_clothes_left_sleeve_mask_np = np.zeros_like(parsing_np)
+        person_clothes_torso_mask_np = np.zeros_like(parsing_np)
+        person_clothes_right_sleeve_mask_np = np.zeros_like(parsing_np)
+        person_clothes_left_pants_mask_np = np.zeros_like(parsing_np)
+        person_clothes_right_pants_mask_np = np.zeros_like(parsing_np)
+        person_clothes_skirts_mask_np = np.zeros_like(parsing_np)
+        neck_mask_np = np.zeros_like(parsing_np)
+        left_hand_mask_np = np.zeros_like(parsing_np)
+        right_hand_mask_np = np.zeros_like(parsing_np)
+        hand_mask_np = np.zeros_like(parsing_np)
 
+        if C_type == 'upper' or C_type == 'dresses':
+            person_clothes_left_sleeve_mask_np = (parsing_np==21).astype(int) + \
+                                                (parsing_np==24).astype(int)
+            person_clothes_torso_mask_np = (parsing_np==5).astype(int) + \
+                                        (parsing_np==6).astype(int)
+            person_clothes_right_sleeve_mask_np = (parsing_np==22).astype(int) + \
+                                                (parsing_np==25).astype(int)
+            person_clothes_mask_np = person_clothes_left_sleeve_mask_np + \
+                                  person_clothes_torso_mask_np + \
+                                  person_clothes_right_sleeve_mask_np
+            left_hand_mask_np = (parsing_np==15).astype(int)
+            right_hand_mask_np = (parsing_np==16).astype(int)
+            hand_mask_np = left_hand_mask_np + right_hand_mask_np
+            neck_mask_np = (parsing_np==11).astype(int)
+        else:
+            person_clothes_left_pants_mask_np = (parsing_np==9).astype(int)
+            person_clothes_right_pants_mask_np = (parsing_np==10).astype(int)
+            person_clothes_skirts_mask_np = (parsing_np==13).astype(int)
+            person_clothes_mask_np = person_clothes_left_pants_mask_np + \
+                                  person_clothes_right_pants_mask_np + \
+                                  person_clothes_skirts_mask_np
+
+        person_clothes_mask_tensor = torch.tensor(person_clothes_mask_np.transpose(2, 0, 1)).float()
         person_clothes_left_sleeve_mask_tensor = torch.tensor(person_clothes_left_sleeve_mask_np.transpose(2, 0, 1)).float()
         person_clothes_torso_mask_tensor = torch.tensor(person_clothes_torso_mask_np.transpose(2, 0, 1)).float()
         person_clothes_right_sleeve_mask_tensor = torch.tensor(person_clothes_right_sleeve_mask_np.transpose(2, 0, 1)).float()
-        person_clothes_mask_tensor = torch.tensor(person_clothes_mask_np.transpose(2, 0, 1)).float()
-        left_arm_mask_tensor = torch.tensor(left_arm_mask_np.transpose(2, 0, 1)).float()
-        right_arm_mask_tensor = torch.tensor(right_arm_mask_np.transpose(2, 0, 1)).float()
+        person_clothes_left_pants_mask_tensor =  torch.tensor(person_clothes_left_pants_mask_np.transpose(2, 0, 1)).float()
+        person_clothes_skirts_mask_tensor =  torch.tensor(person_clothes_skirts_mask_np.transpose(2, 0, 1)).float()
+        person_clothes_right_pants_mask_tensor =  torch.tensor(person_clothes_right_pants_mask_np.transpose(2, 0, 1)).float()
+        left_hand_mask_tensor = torch.tensor(left_hand_mask_np.transpose(2, 0, 1)).float()
+        right_hand_mask_tensor = torch.tensor(right_hand_mask_np.transpose(2, 0, 1)).float()
         neck_mask_tensor = torch.tensor(neck_mask_np.transpose(2, 0, 1)).float()
 
         seg_gt_tensor = person_clothes_left_sleeve_mask_tensor * 1 + person_clothes_torso_mask_tensor * 2 + \
-                        person_clothes_right_sleeve_mask_tensor * 3 + left_arm_mask_tensor * 4 + \
-                        right_arm_mask_tensor * 5 + neck_mask_tensor * 6
+                        person_clothes_right_sleeve_mask_tensor * 3 +  person_clothes_left_pants_mask_tensor * 4 + \
+                        person_clothes_skirts_mask_tensor * 5 + person_clothes_right_pants_mask_tensor * 6 + \
+                        left_hand_mask_tensor * 7 + right_hand_mask_tensor * 8 + neck_mask_tensor * 9
         background_mask_tensor = 1 - (person_clothes_left_sleeve_mask_tensor + person_clothes_torso_mask_tensor + \
-                                      person_clothes_right_sleeve_mask_tensor + left_arm_mask_tensor + right_arm_mask_tensor + \
-                                      neck_mask_tensor)
+                                      person_clothes_right_sleeve_mask_tensor + person_clothes_left_pants_mask_tensor + \
+                                      person_clothes_right_pants_mask_tensor + person_clothes_skirts_mask_tensor + \
+                                      left_hand_mask_tensor + right_hand_mask_tensor + neck_mask_tensor)
         seg_gt_onehot_tensor = torch.cat([background_mask_tensor, person_clothes_left_sleeve_mask_tensor, \
                                          person_clothes_torso_mask_tensor, person_clothes_right_sleeve_mask_tensor, \
-                                        left_arm_mask_tensor, right_arm_mask_tensor, neck_mask_tensor],0)
+                                         person_clothes_left_pants_mask_tensor, person_clothes_skirts_mask_tensor, \
+                                         person_clothes_right_pants_mask_tensor,  left_hand_mask_tensor, \
+                                         right_hand_mask_tensor, neck_mask_tensor],0)
 
-        ### preserve region mask        
-        if self.opt.no_dynamic_mask or self.ratio_dict is None:
-            preserve_mask_for_loss_np = np.array([(parsing_np==index).astype(int) for index in [1,2,3,4,7,8,9,10,12,13,14,17,18,19,20,23,26,27,28]])
-            preserve_mask_for_loss_np = np.sum(preserve_mask_for_loss_np,axis=0)
+        if C_type == 'upper' or C_type == 'dresses':
+            person_clothes_left_mask_tensor = person_clothes_left_sleeve_mask_tensor
+            person_clothes_middle_mask_tensor = person_clothes_torso_mask_tensor
+            person_clothes_right_mask_tensor = person_clothes_right_sleeve_mask_tensor
         else:
-            pc_ratio = self.ratio_dict[self.C_paths[index].split('/')[-1][:-4]+'.png']
-            if pc_ratio < 0.9:
+            person_clothes_left_mask_tensor = person_clothes_left_pants_mask_tensor
+            person_clothes_middle_mask_tensor = person_clothes_skirts_mask_tensor
+            person_clothes_right_mask_tensor = person_clothes_right_pants_mask_tensor
+
+        ### preserve region mask
+        ### preserve_mask1_np and preserve_mask2_np are only used for the training of warping module
+        ### preserve_mask3_np is a bit different for the warping module and the try-on module
+        if C_type == 'upper':
+            if self.ratio_dict is None:
                 preserve_mask_for_loss_np = np.array([(parsing_np==index).astype(int) for index in [1,2,3,4,7,8,9,10,12,13,14,17,18,19,20,23,26,27,28]])
                 preserve_mask_for_loss_np = np.sum(preserve_mask_for_loss_np,axis=0)
-            elif pc_ratio < 0.95:
-                if random() < 0.5:
-                    preserve_mask_for_loss_np = np.array([(parsing_np==index).astype(int) for index in [1,2,3,4,7,8,9,10,12,13,14,17,18,19,20,23,26,27,28]])
-                    preserve_mask_for_loss_np = np.sum(preserve_mask_for_loss_np,axis=0)
-                else:
-                    preserve_mask_for_loss_np = np.array([(parsing_np==index).astype(int) for index in [1,2,3,4,7,12,14,23,26,27]])
-                    preserve_mask_for_loss_np = np.sum(preserve_mask_for_loss_np,axis=0)
             else:
-                if random() < 0.1:
+                pc_ratio = self.ratio_dict[self.C_paths[index].split('/')[-1][:-4]+'.png']
+                if pc_ratio < 0.95:
                     preserve_mask_for_loss_np = np.array([(parsing_np==index).astype(int) for index in [1,2,3,4,7,8,9,10,12,13,14,17,18,19,20,23,26,27,28]])
                     preserve_mask_for_loss_np = np.sum(preserve_mask_for_loss_np,axis=0)
+                elif pc_ratio < 1.0:
+                    if random() < 0.5:
+                        preserve_mask_for_loss_np = np.array([(parsing_np==index).astype(int) for index in [1,2,3,4,7,8,9,10,12,13,14,17,18,19,20,23,26,27,28]])
+                    else:
+                        preserve_mask_for_loss_np = np.array([(parsing_np==index).astype(int) for index in [1,2,3,4,7,12,14,23,26,27]])
+                    preserve_mask_for_loss_np = np.sum(preserve_mask_for_loss_np,axis=0)
                 else:
-                    preserve_mask_for_loss_np = np.array([(parsing_np==index).astype(int) for index in [1,2,3,4,7,12,14,23,26,27]])
+                    if random() < 0.1:
+                        preserve_mask_for_loss_np = np.array([(parsing_np==index).astype(int) for index in [1,2,3,4,7,8,9,10,12,13,14,17,18,19,20,23,26,27,28]])
+                    else:
+                        preserve_mask_for_loss_np = np.array([(parsing_np==index).astype(int) for index in [1,2,3,4,7,12,14,23,26,27]])
                     preserve_mask_for_loss_np = np.sum(preserve_mask_for_loss_np,axis=0)
 
-        preserve_mask_np = np.array([(parsing_np==index).astype(int) for index in [1,2,3,4,7,8,9,10,12,13,14,17,18,19,20,23,26,27,28]])
-        preserve_mask_np = np.sum(preserve_mask_np,axis=0)
+            preserve_mask_np = np.array([(parsing_np==index).astype(int) for index in [1,2,3,4,7,8,9,10,12,13,14,17,18,19,20,23,26,27,28]])
+            preserve_mask_np = np.sum(preserve_mask_np,axis=0)
 
-        preserve_mask1_np = preserve_mask_for_loss_np + palm_mask_np
-        preserve_mask2_np = preserve_mask_for_loss_np + hand_mask_np
-        preserve_mask3_np = preserve_mask_np + palm_mask_np
-        
+            preserve_mask1_np = preserve_mask_for_loss_np + palm_mask_np
+            preserve_mask2_np = preserve_mask_for_loss_np + hand_mask_np
+            preserve_mask3_np = preserve_mask_np + palm_mask_np
+        elif C_type == 'dresses':
+            preserve_mask_np = np.array([(parsing_np==index).astype(int) for index in [1,2,3,4,12,14,23]])
+            if self.stage == 'gen':
+                preserve_mask_np = np.array([(parsing_np==index).astype(int) for index in [1,2,3,4,12,14,23,8,19,20]])
+            preserve_mask_np = np.sum(preserve_mask_np,axis=0)
+            preserve_mask_for_loss_np = preserve_mask_np
+
+            preserve_mask1_np = preserve_mask_for_loss_np + palm_mask_np
+            preserve_mask2_np = preserve_mask_for_loss_np + hand_mask_np
+            preserve_mask3_np = preserve_mask_np + palm_mask_np
+        else:
+            preserve_mask_np = np.array([(parsing_np==index).astype(int) for index in [1,2,3,4,5,6,7,11,12,14,15,16,21,22,23,24,25,26,27,28]])
+            if self.stage == 'gen':
+                preserve_mask_np = np.array([(parsing_np==index).astype(int) for index in [1,2,3,4,5,6,7,11,12,14,15,16,21,22,23,24,25,26,27,28,8,19,20]])
+            preserve_mask_for_loss_np = preserve_mask_np
+
+            preserve_mask1_np = np.sum(preserve_mask_for_loss_np,axis=0)
+            preserve_mask2_np = np.sum(preserve_mask_for_loss_np, axis=0)
+            preserve_mask3_np = np.sum(preserve_mask_np,axis=0)
+
         preserve_mask1_tensor = torch.tensor(preserve_mask1_np.transpose(2,0,1)).float()
         preserve_mask2_tensor = torch.tensor(preserve_mask2_np.transpose(2,0,1)).float()
         preserve_mask3_tensor = torch.tensor(preserve_mask3_np.transpose(2,0,1)).float()
+
+        ### used for gradient truncation during training
+        preserve_legs_mask_np = np.zeros_like(parsing_np)
+        preserve_left_pants_mask_np = np.zeros_like(parsing_np)
+        preserve_right_pants_mask_np = np.zeros_like(parsing_np)
+
+        pants_mask_np = (parsing_np==9).astype(np.uint8) + (parsing_np==10).astype(np.uint8)
+        skirts_mask_np = (parsing_np==13).astype(np.uint8)
+        if C_type == 'lower':
+            if np.sum(skirts_mask_np) > np.sum(pants_mask_np):
+                preserve_legs_mask_np = (parsing_np==17).astype(np.uint8) + (parsing_np==18).astype(np.uint8) + \
+                                        (parsing_np==19).astype(np.uint8) + (parsing_np==20).astype(np.uint8)
+            else:
+                preserve_left_pants_mask_np = (parsing_np==9).astype(np.uint8)
+                preserve_right_pants_mask_np = (parsing_np==10).astype(np.uint8)
+        elif C_type == 'dresses':
+            preserve_legs_mask_np = (parsing_np==17).astype(np.uint8) + (parsing_np==18).astype(np.uint8) + \
+                                    (parsing_np==19).astype(np.uint8) + (parsing_np==20).astype(np.uint8)
+        
+        preserve_legs_mask_tensor = torch.tensor(preserve_legs_mask_np.transpose(2,0,1)).float()
+        preserve_left_pants_mask_tensor = torch.tensor(preserve_left_pants_mask_np.transpose(2,0,1)).float()
+        preserve_right_pants_mask_tensor = torch.tensor(preserve_right_pants_mask_np.transpose(2,0,1)).float()
+        
 
         ### clothes
         C_path = self.C_paths[index]
         C = Image.open(C_path).convert('RGB')
         C_tensor = transform_for_rgb(C)
 
-        CM_path = C_path.replace('/cloth/', '/cloth_mask-bytedance/')[:-4]+'.png'
+        CM_path = C_path.replace('/cloth_align/', '/cloth_align_mask-bytedance/')
         CM = Image.open(CM_path).convert('L')
         CM_tensor = transform_for_mask(CM)
 
-        cloth_parsing_path = C_path.replace('/cloth/', '/cloth_parse-bytedance/')[:-4]+'.png'
+        cloth_parsing_path = C_path.replace('/cloth_align/', '/cloth_align_parse-bytedance/')
         cloth_parsing = Image.open(cloth_parsing_path).convert('L')
         cloth_parsing_tensor = transform_for_mask(cloth_parsing) * 255.0
         cloth_parsing_tensor = cloth_parsing_tensor[0:1, ...]
 
         cloth_parsing_np = (cloth_parsing_tensor.numpy().transpose(1,2,0)).astype(int)
-        flat_cloth_left_mask_np = (cloth_parsing_np==21).astype(int)
-        flat_cloth_middle_mask_np = (cloth_parsing_np==5).astype(int) + \
-                                    (cloth_parsing_np==24).astype(int) + \
-                                    (cloth_parsing_np==13).astype(int)
-        flat_cloth_right_mask_np = (cloth_parsing_np==22).astype(int)
-        flat_cloth_label_np = flat_cloth_left_mask_np * 1 + flat_cloth_middle_mask_np * 2 + flat_cloth_right_mask_np * 3
-        flat_cloth_label_np = flat_cloth_label_np / 3
-        
-        flat_cloth_left_mask_tensor = torch.tensor(flat_cloth_left_mask_np.transpose(2, 0, 1)).float()
-        flat_cloth_middle_mask_tensor = torch.tensor(flat_cloth_middle_mask_np.transpose(2, 0, 1)).float()
-        flat_cloth_right_mask_tensor = torch.tensor(flat_cloth_right_mask_np.transpose(2, 0, 1)).float()
+        if C_type == 'upper' or C_type == 'dresses':
+            flat_clothes_left_mask_np = (cloth_parsing_np==21).astype(int)
+            flat_clothes_middle_mask_np = (cloth_parsing_np==5).astype(int) + \
+                                          (cloth_parsing_np==24).astype(int) + \
+                                          (cloth_parsing_np==13).astype(int)
+            flat_clothes_right_mask_np = (cloth_parsing_np==22).astype(int)
+            flat_clothes_label_np = flat_clothes_left_mask_np * 1 + flat_clothes_middle_mask_np * 2 + flat_clothes_right_mask_np * 3
+        else:
+            flat_clothes_left_mask_np = (cloth_parsing_np==9).astype(int)
+            flat_clothes_middle_mask_np = (cloth_parsing_np==13).astype(int)
+            flat_clothes_right_mask_np = (cloth_parsing_np==10).astype(int)
+            flat_clothes_label_np = flat_clothes_left_mask_np * 4 + flat_clothes_middle_mask_np * 5 + flat_clothes_right_mask_np * 6
+        flat_clothes_label_np = flat_clothes_label_np / 6
 
-        flat_cloth_label_tensor = torch.tensor(flat_cloth_label_np.transpose(2, 0, 1)).float()
+        cloth_type_np = np.zeros_like(parsing_np)
+        if C_type == 'upper':
+            cloth_type_np = cloth_type_np + 1.0
+        elif C_type == 'lower':
+            cloth_type_np = cloth_type_np + 2.0
+        else:
+            cloth_type_np = cloth_type_np + 3.0
+        cloth_type_np = cloth_type_np / 3.0
+        
+        flat_clothes_left_mask_tensor = torch.tensor(flat_clothes_left_mask_np.transpose(2, 0, 1)).float()
+        flat_clothes_middle_mask_tensor = torch.tensor(flat_clothes_middle_mask_np.transpose(2, 0, 1)).float()
+        flat_clothes_right_mask_tensor = torch.tensor(flat_clothes_right_mask_np.transpose(2, 0, 1)).float()
+
+        flat_clothes_label_tensor = torch.tensor(flat_clothes_label_np.transpose(2, 0, 1)).float()
+        cloth_type_tensor = torch.tensor(cloth_type_np.transpose(2,0,1)).float()
 
         WC_tensor = None
         WE_tensor = None
@@ -310,7 +400,10 @@ class AlignedDataset(BaseDataset):
         if self.warproot:
             ### skin color
             face_mask_np = (parsing_np==14).astype(np.uint8)
-            skin_mask_np = (face_mask_np+hand_mask_np+neck_mask_np).astype(np.uint8)
+            neck_mask_np = (parsing_np==11).astype(np.uint8)
+            hand_mask_np = (parsing_np==15).astype(np.uint8) + (parsing_np==16).astype(np.uint8)
+            leg_mask_np = (parsing_np==17).astype(int) + (parsing_np==18).astype(int)
+            skin_mask_np = (face_mask_np+hand_mask_np+neck_mask_np+leg_mask_np)
             skin = skin_mask_np * P_np
             skin_r = skin[..., 0].reshape((-1))
             skin_g = skin[..., 1].reshape((-1))
@@ -348,14 +441,18 @@ class AlignedDataset(BaseDataset):
 
             warped_edge_np = (warped_parse_np==1).astype(np.uint8) + \
                              (warped_parse_np==2).astype(np.uint8) + \
-                             (warped_parse_np==3).astype(np.uint8)
+                             (warped_parse_np==3).astype(np.uint8) + \
+                             (warped_parse_np==4).astype(np.uint8) + \
+                             (warped_parse_np==5).astype(np.uint8) + \
+                             (warped_parse_np==6).astype(np.uint8)
             warped_edge = Image.fromarray(warped_edge_np).convert('L')
             WE_tensor = transform_for_mask(warped_edge) * 255.0
             WE_tensor = WE_tensor[0:1,...]
-            
-            arms_neck_label = (warped_parse_np==4).astype(np.uint8) * 1 + \
-                              (warped_parse_np==5).astype(np.uint8) * 2 + \
-                              (warped_parse_np==6).astype(np.uint8) * 3
+            preserve_mask3_tensor = preserve_mask3_tensor * (1-WE_tensor)
+
+            arms_neck_label = (warped_parse_np==7).astype(np.uint8) * 1 + \
+                              (warped_parse_np==8).astype(np.uint8) * 2 + \
+                              (warped_parse_np==9).astype(np.uint8) * 3
 
             arms_neck_label = Image.fromarray(arms_neck_label).convert('L')
             ANL_tensor = transform_for_mask(arms_neck_label) * 255.0 / 3.0
@@ -365,19 +462,23 @@ class AlignedDataset(BaseDataset):
             'image': P_tensor, 'pose':Pose_tensor , 'densepose':dense_mask_tensor,
             'seg_gt': seg_gt_tensor, 'seg_gt_onehot': seg_gt_onehot_tensor,
             'person_clothes_mask': person_clothes_mask_tensor,
-            'person_clothes_left_mask': person_clothes_left_sleeve_mask_tensor,
-            'person_clothes_middle_mask': person_clothes_torso_mask_tensor,
-            'person_clothes_right_mask': person_clothes_right_sleeve_mask_tensor,
+            'person_clothes_left_mask': person_clothes_left_mask_tensor,
+            'person_clothes_middle_mask': person_clothes_middle_mask_tensor,
+            'person_clothes_right_mask': person_clothes_right_mask_tensor,
             'preserve_mask': preserve_mask1_tensor, 'preserve_mask2': preserve_mask2_tensor,
             'preserve_mask3': preserve_mask3_tensor,
             'color': C_tensor, 'edge': CM_tensor, 
-            'flat_clothes_left_mask': flat_cloth_left_mask_tensor,
-            'flat_clothes_middle_mask': flat_cloth_middle_mask_tensor,
-            'flat_clothes_right_mask': flat_cloth_right_mask_tensor,
-            'flat_clothes_label': flat_cloth_label_tensor,
+            'flat_clothes_left_mask': flat_clothes_left_mask_tensor,
+            'flat_clothes_middle_mask': flat_clothes_middle_mask_tensor,
+            'flat_clothes_right_mask': flat_clothes_right_mask_tensor,
+            'flat_clothes_label': flat_clothes_label_tensor,
+            'flat_clothes_type': cloth_type_tensor,
             'c_type': C_type, 
             'color_path': C_path,
             'img_path': P_path,
+            'preserve_legs_mask': preserve_legs_mask_tensor,
+            'preserve_left_pants_mask': preserve_left_pants_mask_tensor,
+            'preserve_right_pants_mask': preserve_right_pants_mask_tensor,
         }
         if WC_tensor is not None:
             input_dict['warped_cloth'] = WC_tensor

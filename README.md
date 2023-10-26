@@ -37,20 +37,63 @@ We provide the fine-grained parsing result of the model images and in-shop garme
 
 We provide two version of the parsing results. One is with the original resolution (1024 x 768). Another is with the resolution of 512 x 384, on which our experiment are conducted.
 
-**VITON-HD**
 
 |Resolution|Google Cloud|Baidu Yun|
 |--------|--------------|-----------|
-| 1024 x 768 | Available soon | Available soon |
-| 512 x 384 | [Download](https://drive.google.com/file/d/1PS2cReM8uRDg9Rg51RH1cVQ7jkiAekAo/view?usp=sharing) | [Download](https://pan.baidu.com/s/1lFO2DcqCVurP2XxYbujnOg?pwd=b39q) |
+| VITON-HD(512 x 384) | Available soon | [Download](https://pan.baidu.com/s/1tsoaYPnevI-EsqxYZZyIbg?pwd=f9sc) |
+| VITON-HD(1024 x 768) | Available soon | [Download](https://pan.baidu.com/s/1g9Wq1Oo_8GxwIax7nPve7A?pwd=kcu2) |
+| DressCode(512 x 384) | Available soon | [Download](https://pan.baidu.com/s/1qJ1CPxMshaSWaMi46FA3Ww?pwd=n7hv) |
+| DressCode(1024 x 768) | Available soon | [Download](https://pan.baidu.com/s/1_8bqRgakiM06EOQXjSbkaQ?pwd=yru5) |
 
+The parsing labels for model image (person) and garment image (in-shop garment) are a bit different. The semantic of each index for human/garment parsing are described below.
 
-**DressCode**
+**Human Parsing (for person)**
+|Index of label|Semantic of label|
+|:--------:|:--------------:|
+|0|background|
+|1|hat|
+|2|hair|
+|3|glove|
+|4|glasses|
+|5|upper (only torso region)|
+|6|dresses (only torso region)|
+|7|coat (only torso region)|
+|8|socks|
+|9|left pants|
+|10|right patns|
+|11|skin (around neck region)|
+|12|scarf|
+|13|skirts|
+|14|face|
+|15|left arm|
+|16|right arm|
+|17|left leg|
+|18|right leg|
+|19|left shoe|
+|20|right shoe|
+|21|left sleeve (for upper)|
+|22|right sleeve (for upper)|
+|23|bag|
+|24|left sleeve (for dresses)|
+|25|right sleeve (for dresses)|
+|26|left sleeve (for coat)|
+|27|right sleeve (for coat)|
+|28|belt|
 
-|Resolution|Google Cloud|Baidu Yun|
-|--------|--------------|-----------|
-| 1024 x 768 | [Download](https://drive.google.com/file/d/14-md1SlLI-TQdi7tB9R9XwjryrRf8G-Q/view?usp=sharing) | [Download](https://pan.baidu.com/s/1T_O-xgfYkTfH0dSFZOEcdw?pwd=up9i) |
-| 512 x 384 | [Download](https://drive.google.com/file/d/1spTLgPjx1_qbmNa2Or8MzNDVawoNWXFO/view?usp=sharing) | [Download](https://pan.baidu.com/s/1hFkOvnOtWOp7UIplTMCPOw?pwd=c4dy) |
+**Garment Parsing (for in-shop garment)**
+|Index of label|Semantic of label|
+|:--------:|:--------------:|
+|0|background|
+|5|upper (only torso region)|
+|6|dresses (only torso region)|
+|7|coat (only torso region)|
+|9|left pants|
+|10|right patns|
+|13|skirts|
+|21|left sleeve (for upper, dresses, coat)|
+|22|right sleeve (for upper, dresses, coat)|
+|24|outer collar (preserved during training)|
+|25|inner collar (eliminated during training)|
 
 ## Environment Setup
 Install required packages:
@@ -60,18 +103,24 @@ pip3 install -r requirements.txt
 ```
 
 ## Dataset
-We conduct experiments on the publicly available [VITON-HD](https://github.com/shadow2496/VITON-HD) and [DressCode](https://github.com/aimagelab/dress-code) datasets. For convenience, we provide all of the conditions used in our experiments in the following links.
+We conduct experiments on the publicly available [VITON-HD](https://github.com/shadow2496/VITON-HD) and [DressCode](https://github.com/aimagelab/dress-code) datasets with resolution of 512 x 384. For convenience, we provide all of the conditions used in our experiments in the following links.
+
+We also provide another version with the original resolution (1024 x 768).
 
 |Resolution|Google Cloud|Baidu Yun|
 |--------|--------------|-----------|
-|VITON-HD(512 x 384)|[Download](https://drive.google.com/file/d/1zK3yZaqwIN8P933WwmDFVX8sUi1nVgbR/view?usp=sharing)|[Download](https://pan.baidu.com/s/1XCINK6FtxQuhRRpBO10FEw?pwd=dsm4)|
-|DressCode(512 x 384)|[Download (coming soon)]()|[Download (coming soon)]()|
+|VITON-HD(512 x 384)|Available soon|[Download](https://pan.baidu.com/s/16oJAl_VS18gQ2XHHhKgliA?pwd=e985)|
+|VITON-HD(1024 x 768)|Available soon|[Download](https://pan.baidu.com/s/1d31qoF2bXGHAeFgIb5kVzA?pwd=3tah)|
+|DressCode(512 x 384)|Available soon|[Download](https://pan.baidu.com/s/19bWbO_klq_ABTTZKWmUCKg?pwd=unp4)|
+|DressCode(1024 x 768)|Available soon|[Download](https://pan.baidu.com/s/1HePSYE6DEwRGnZsfbJ5ylQ?pwd=qh5g)|
+
+> When using the VITON-HD and DressCode dataset, please strictly obey the official licences in their websites. ([Licence of VITON-HD](https://github.com/shadow2496/VITON-HD), [Licence of DressCode](https://github.com/aimagelab/dress-code/blob/main/LICENCE)) 
 
 ## Inference
 
 **VITON-HD**
 
-Please download the pre-trained model from [Google Link](https://drive.google.com/file/d/1vrUJf8n0nJdzX76gRI1x2u07chqPKBRf/view?usp=sharing) or [Baidu Yun Link](https://pan.baidu.com/s/1ABlcBOSHEiKscYExiXVuew?pwd=cjdd), and put the downloaded directory under root directory of this project.
+Please download the pre-trained model from [Google Link (Available soon)]() or [Baidu Yun Link](https://pan.baidu.com/s/1gc6cH38eRxeMHD9fLj_wDQ?pwd=egpa), and rename the downloaded directory to `checkpoints` and put it under root directory of this project.
 
 To test the first stage (i.e., the LFGP warping module), run the following command:
 ```
@@ -79,8 +128,9 @@ python3 -m torch.distributed.launch --nproc_per_node=8 --master_port=4739 test_w
     --name test_partflow_vitonhd_unpaired_1109 \
     --PBAFN_warp_checkpoint 'checkpoints/gp-vton_partflow_vitonhd_usepreservemask_lrarms_1027/PBAFN_warp_epoch_121.pth' \
     --resize_or_crop None --verbose --tf_log \
+    --dataset vitonhd --resolution 512 \
     --batchSize 2 --num_gpus 8 --label_nc 14 --launcher pytorch \
-    --dataroot /home/tiger/datazy/CVPR2023/Datasets/VITONHD \
+    --dataroot /home/tiger/datazy/Datasets/VITON-HD-512 \
     --image_pairs_txt test_pairs_unpaired_1018.txt
 ```
 
@@ -88,14 +138,61 @@ To test the second stage (i.e., the try-on generator), run the following command
 ```
 python3 -m torch.distributed.launch --nproc_per_node=8 --master_port=4736 test_tryon.py \
     --name test_gpvtongen_vitonhd_unpaired_1109 \
-    --resize_or_crop None --verbose --tf_log --batchSize 12 --num_gpus 8 --label_nc 14 --launcher pytorch \
+    --resize_or_crop None --verbose --tf_log \
+    --dataset vitonhd --resolution 512 \
+    --batchSize 12 --num_gpus 8 --label_nc 14 --launcher pytorch \
     --PBAFN_gen_checkpoint 'checkpoints/gp-vton_gen_vitonhd_wskin_wgan_lrarms_1029/PBAFN_gen_epoch_201.pth' \
-    --dataroot /home/tiger/datazy/CVPR2023/Datasets/VITONHD \
+    --dataroot /home/tiger/datazy/Datasets/VITON-HD-512 \
     --image_pairs_txt test_pairs_unpaired_1018.txt \
-    --warproot /home/tiger/datazy/CVPR2023/GP-VTON-partflow_final_kaiwu/sample/test_partflow_vitonhd_unpaired_1109
+    --warproot sample/test_partflow_vitonhd_unpaired_1109
 ```
 
 Note that, in the above two commands, parameter `--dataroot` refers to the root directory of VITON-HD dataset, parameter `--image_pairs_txt` refers to the test list, which is put under the root directory of VITON-HD dataset, parameter `--warproot` in the second command refers to the directory of the warped results generated by the first command. Both of the generated results from the two commands are saved under the directory `./sample/exp_name`, in which `exp_name` is defined by the parameter `--name` in each command.
+
+Or you can run the bash scripts by using the following commonds:
+
+```
+# for warping module
+bash scripts/test.sh 1
+
+# for try-on module
+bash scripts/test.sh 2
+```
+
+We also provide the pre-trained model for higher resolution (1024 x 768) synthesis. Run the following commonds for inference:
+
+```
+# for warping module
+bash scripts/test.sh 3
+
+# for try-on module
+bash scripts/test.sh 4
+```
+
+Note that, for higher resolution model, we only re-train the try-on module, thus the warping module is the same as that for 512-resolution synthesis.
+
+**DressCode**
+
+To test GP-VTON for DressCode dataset, please download the pre-trained model from [Google Link (Available soon)]() or [Baidu Yun Link](https://pan.baidu.com/s/12Q6N-FdU-nuz9Q5Er9DSQg?pwd=q2w5), and rename the downloaded directory to `checkpoints` and put it under root directory of this project.
+
+The inference scripts are similar those for VITON-HD dataset. You can directly run the following commands:
+
+```
+## for DressCode 512
+### for warping module
+bash scripts/test.sh 5
+
+### for try-on module
+bash scripts/test.sh 6
+
+## for DressCode 1024
+### for warping module
+bash scripts/test.sh 7
+
+### for try-on module
+bash scripts/test.sh 8
+
+```
 
 ## Training
 
@@ -106,30 +203,34 @@ To train the first stage (i.e., the LFGP warping module), run the following comm
 python3 -m torch.distributed.launch --nproc_per_node=8 --master_port=7129 train_warping.py \
     --name gp-vton_partflow_vitonhd_usepreservemask_lrarms_1027 \
     --resize_or_crop None --verbose --tf_log \
+    --dataset vitonhd --resolution 512 \
     --batchSize 2 --num_gpus 8 --label_nc 14 --launcher pytorch  \
-    --dataroot /home/tiger/datazy/CVPR2023/Datasets/VITONHD \
+    --dataroot /home/tiger/datazy/Datasets/VITON-HD-512 \
     --image_pairs_txt train_pairs_1018.txt \
     --display_freq 320 --print_freq 160 --save_epoch_freq 10 --write_loss_frep 320 \
     --niter_decay 50 --niter 70  --mask_epoch 70 \
     --lr 0.00005
 ```
 
-To train the second stage (i.e., the try-on generator), we first need to run the following command to generate the warped results for the flat garments in the training set:
+To train the second stage (i.e., the try-on generator), we first need to run the following command to generate the warped results for the in-shop garments in the training set:
 ```
 python3 -m torch.distributed.launch --nproc_per_node=8 --master_port=4739 test_warping.py \
     --name test_gpvton_lrarms_for_training_1029 \
     --PBAFN_warp_checkpoint 'checkpoints/gp-vton_partflow_vitonhd_usepreservemask_lrarms_1027/PBAFN_warp_epoch_121.pth' \
     --resize_or_crop None --verbose --tf_log \
+    --dataset vitonhd --resolution 512 \
     --batchSize 2 --num_gpus 8 --label_nc 14 --launcher pytorch \
-    --dataroot /home/tiger/datazy/CVPR2023/Datasets/VITONHD \
+    --dataroot /home/tiger/datazy/Datasets/VITON-HD-512 \
     --image_pairs_txt train_pairs_1018.txt
 ```
-The warped results will saved in the directory `sample/test_gpvton_lrarms_for_training_1029`. Thus run the following command for training:
+The warped results will saved in the directory `sample/test_gpvton_lrarms_for_training_1029`. Then run the following command for training:
 ```
 python3 -m torch.distributed.launch --nproc_per_node=8 --master_port=4736 train_tryon.py \
     --name gp-vton_gen_vitonhd_wskin_wgan_lrarms_1029 \
-    --resize_or_crop None --verbose --tf_log --batchSize 10 --num_gpus 8 --label_nc 14 --launcher pytorch \
-    --dataroot /home/tiger/datazy/CVPR2023/Datasets/VITONHD \
+    --resize_or_crop None --verbose --tf_log \
+    --dataset vitonhd --resolution 512 \
+    --batchSize 10 --num_gpus 8 --label_nc 14 --launcher pytorch \
+    --dataroot /home/tiger/datazy/Datasets/VITON-HD-512 \
     --image_pairs_txt train_pairs_1018.txt \
     --warproot sample/test_gpvton_lrarms_for_training_1029 \
     --display_freq 50 --print_freq 25 --save_epoch_freq 10 --write_loss_frep 25 \
@@ -137,13 +238,61 @@ python3 -m torch.distributed.launch --nproc_per_node=8 --master_port=4736 train_
     --lr 0.0005
 ```
 
+Or you can run the bash scripts by using the following commonds:
+
+```
+# train the warping module
+bash scripts/train.sh 1
+
+# prepare the warped garment
+bash scripts/train.sh 2
+
+# train the try-on module
+bash scripts/train.sh 3
+```
+
+To train the try-on module for higher resolution (1024 x 768) synthesis, please run the following commands:
+
+```
+# prepare the warped garment
+bash scripts/train.sh 4
+
+# train the try-on module
+bash scripts/train.sh 5
+```
+
+**DressCode**
+
+The training scripts are similar those for VITON-HD dataset. You can directly run the following commands:
+
+```
+## for DressCode 512
+### train the warping module
+bash scripts/train.sh 6
+
+### prepare the warped garment
+bash scripts/train.sh 7
+
+### train the try-on module
+bash scripts/train.sh 8
+
+## for DressCode 1024
+### train the warping module
+bash scripts/train.sh 9
+
+### prepare the warped garment
+bash scripts/train.sh 10
+
+```
+
 
 ## Todo
 - [x] Release the ground truth of the garment parsing and human parsing for two public benchmarks (VITON-HD and DressesCode) used in the paper
 - [x] Release the the pretrained model and the inference script for VITON-HD dataset.
-- [ ] Release the the pretrained model and the inference script for DressCode dataset.
+- [x] Release the the pretrained model and the inference script for DressCode dataset.
 - [x] Release the training script for VITON-HD dataset.
-- [ ] Release the training script for DressCode dataset.
+- [x] Release the training script for DressCode dataset.
+- [x] Release the training/testing scripts for 1024-resolution on VITON-HD and DressCode datasets.
 
 ## Citation
 
